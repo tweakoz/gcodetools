@@ -23,6 +23,27 @@ def invfrange(start, stop, step):
         yield start + i * step
         i += 1
 
+
+#############################################################################
+
+sfmtable = { # mtl, sfm
+    "Aluminum, 7075": { "sfm": 300, "uhp": .25, "intooth": { "min": 0.005, "max": 0.01 } },
+    "Aluminum, 6061": { "sfm": 280, "uhp": .25, "intooth": { "min": 0.005, "max": 0.01 } },
+    "Aluminum, 2024": { "sfm": 200, "uhp": .25, "intooth": { "min": 0.005, "max": 0.01 } },
+    "Aluminum, Cast": { "sfm": 134, "uhp": .25, "intooth": { "min": 0.005, "max": 0.01 } },
+    "Brass": { "sfm": 400, "uhp": .25, "intooth": { "min": 0.005, "max": 0.01 } },
+    "Bronze": { "sfm": 150, "uhp": .25, "intooth": { "min": 0.005, "max": 0.01 } },
+    "Copper": { "sfm": 100, "uhp": .25, "intooth": { "min": 0.005, "max": 0.01 } },
+    "Cast Iron (soft)": { "uhp": .25, "sfm": 80, "intooth": { "min": 0.005, "max": 0.01 } },
+    "Cast Iron (hard)": { "uhp": .25, "sfm": 50, "intooth": { "min": 0.005, "max": 0.01 } },
+    "Copper": { "sfm": 100, "uhp": .25, "intooth": { "min": 0.005, "max": 0.01 } },
+    "Mild Steel": { "sfm": 90, "uhp": 1.4, "intooth": { "min": 0.005, "max": 0.01 } },
+    "Cast Steel": { "sfm": 80, "uhp": 2.5, "intooth": { "min": 0.005, "max": 0.01 } },
+    "Alloy Steels (hard)": { "sfm": 40, "uhp": 2.5, "intooth": { "min": 0.005, "max": 0.01 } },
+    "Tool Steel": { "sfm": 50, "uhp": 2.5, "intooth": { "min": 0.005, "max": 0.01 } },
+    "Stainless Steel": { "sfm": 60, "uhp": 2.5, "intooth": { "min": 0.005, "max": 0.01 } },
+}
+
 #############################################################################
 
 class FacerWindow(QWidget):
@@ -43,7 +64,18 @@ class FacerWindow(QWidget):
         self.docZ = 1/16.0
         self.docXY = 0.1
         self.feedRate = 6.0
-        self.toolDiam = 0.1
+        self.toolDiam = 0.25
+        self.flutes = 2
+        self.row = 0
+        self.mrr = 0
+
+        self.docXY = self.toolDiam*0.33
+
+        #####################
+        def rowpp():
+            rv = self.row
+            self.row = self.row+1
+            return rv
         #####################
         def makeNumEdit(var,label,row):
             numlabl = QLabel(label)
@@ -51,29 +83,34 @@ class FacerWindow(QWidget):
             numedit.setMaxLength(10)
             numedit.setText("%g"%getattr(self,var))
             def numeditchanged(text):
-                try:
-                    setattr(self,var,float(text))
-                    print( "%s<%f>"% (label,var) )
-                except:
-                    None
+              print( "labl<%s> var<%s> val<%s>"% (label,var,text) )
+              try:
+                if var=="toolDiam":
+                  self.docXY = float(text)*0.33
+                setattr(self,var,float(text))
+              except:
+                None
+              self.refresh()
             numedit.textChanged.connect(numeditchanged)
             mainLayout.addWidget(numlabl, row, 0)
             mainLayout.addWidget(numedit, row, 1, 1, 1)
+            return numedit
         #####################
 
-        makeNumEdit("x1","x1",0)
-        makeNumEdit("x2","x2",1)
-        makeNumEdit("y1","y1",2)
-        makeNumEdit("y2","y2",3)
-        makeNumEdit("z1","z1",4)
-        makeNumEdit("z2","z2",5)
-        makeNumEdit("safeZ","safeZ",6)
-        #makeNumEdit("docZ","Axial(Z) DOC (in)",7)
-        makeNumEdit("feedRate","Feed Rate (in/sec)",7)
-        makeNumEdit("toolDiam","Tool Diam (in)",8)
+        makeNumEdit("x1","x1",rowpp())
+        makeNumEdit("x2","x2",rowpp())
+        makeNumEdit("y1","y1",rowpp())
+        makeNumEdit("y2","y2",rowpp())
+        makeNumEdit("z1","z1",rowpp())
+        makeNumEdit("z2","z2",rowpp())
+        makeNumEdit("safeZ","safeZ",rowpp())
+        makeNumEdit("flutes","flutes",rowpp())
+        makeNumEdit("feedRate","Feed Rate (in/min)",rowpp())
+        makeNumEdit("toolDiam","Tool Diam (in)",rowpp())
 
-        makeNumEdit("docXY","Radial(XY) DOC (in)",9)
+        self.docXYedit = makeNumEdit("docXY","Radial(XY) DOC (in)",rowpp())
 
+        docZrow = rowpp()
         self.cbox_docZ = QComboBox()
         self.cbox_docZ.addItem('1/16 in', 1.0/16.0)
         self.cbox_docZ.addItem("1/32 in", 1.0/32.0)
@@ -83,30 +120,155 @@ class FacerWindow(QWidget):
         def docZchanged():
             data = self.cbox_docZ.itemData(self.cbox_docZ.currentIndex())
             setattr(self,"docZ",data)
+            self.refresh()
         self.cbox_docZ.activated.connect(docZchanged)
-        mainLayout.addWidget(doczlabl, 10, 0, 1, 1)
-        mainLayout.addWidget(self.cbox_docZ, 10, 1, 1, 1)
-
+        mainLayout.addWidget(doczlabl, docZrow, 0, 1, 1)
+        mainLayout.addWidget(self.cbox_docZ, docZrow, 1, 1, 1)
 
         #####################
+
+        mtlrow = rowpp()
+        self.cbox_mtl = QComboBox()
+
+        for k in sfmtable:
+            v = sfmtable[k]
+            sfm = v["sfm"]
+            self.cbox_mtl.addItem(k, v)
+
+        self.cbox_mtl.activated.connect(self.refresh)
+
+        sfmlabl = QLabel("Material (SFM)")
+        mainLayout.addWidget(sfmlabl, mtlrow, 0, 1, 1)
+        mainLayout.addWidget(self.cbox_mtl, mtlrow, 1, 1, 1)
+        self.cbox_mtl.setCurrentIndex(0)
+
+        #####################
+
+        sfmrow = rowpp()
+        sfmlabl = QLabel("Material SFM (Surface-Ft/Min)")
+        self.sfmvalu = QLineEdit()
+        self.sfmvalu.readOnly = True
+        self.sfmvalu.setStyleSheet("background-color: rgb(32,32,32); color: rgb(128,128,128); ")
+        mainLayout.addWidget(sfmlabl, sfmrow, 0, 1, 1)
+        mainLayout.addWidget(self.sfmvalu, sfmrow, 1, 1, 1)
+
+        #####################
+
+        rpmrow = rowpp()
+        rpmlabl = QLabel("Material RPM (SFM * DIA * 12 / \N{GREEK SMALL LETTER PI} )")
+        self.rpmvalu = QLineEdit()
+        self.rpmvalu.readOnly = True
+        self.rpmvalu.setStyleSheet("background-color: rgb(32,32,32); color: rgb(128,128,128); ")
+        mainLayout.addWidget(rpmlabl, rpmrow, 0, 1, 1)
+        mainLayout.addWidget(self.rpmvalu, rpmrow, 1, 1, 1)
+
+        #####################
+
+        iptrow = rowpp()
+        iptlabl = QLabel("Material FEED (in-tooth)")
+        self.iptvalu = QLineEdit()
+        self.iptvalu.readOnly = True
+        self.iptvalu.setStyleSheet("background-color: rgb(32,32,32); color: rgb(128,128,128); ")
+        mainLayout.addWidget(iptlabl, iptrow, 0, 1, 1)
+        mainLayout.addWidget(self.iptvalu, iptrow, 1, 1, 1)
+
+        #####################
+
+        ipmrow = rowpp()
+        ipmlabl = QLabel("Material FEED (in/min)")
+        self.ipmvalu = QLineEdit()
+        self.ipmvalu.readOnly = True
+        self.ipmvalu.setStyleSheet("background-color: rgb(32,32,32); color: rgb(128,128,128); ")
+        mainLayout.addWidget(ipmlabl, ipmrow, 0, 1, 1)
+        mainLayout.addWidget(self.ipmvalu, ipmrow, 1, 1, 1)
+
+        #####################
+
+        mrrrow = rowpp()
+        mrrlabl = QLabel("Material RR (in^3/min)")
+        self.mrrvalu = QLineEdit()
+        self.mrrvalu.readOnly = True
+        self.mrrvalu.setStyleSheet("background-color: rgb(32,32,32); color: rgb(128,128,128); ")
+        mainLayout.addWidget(mrrlabl, mrrrow, 0, 1, 1)
+        mainLayout.addWidget(self.mrrvalu, mrrrow, 1, 1, 1)
+
+        #####################
+
+        uhprow = rowpp()
+        uhplabl = QLabel("Material UHP (unit-hp)")
+        self.uhpvalu = QLineEdit()
+        self.uhpvalu.readOnly = True
+        self.uhpvalu.setStyleSheet("background-color: rgb(32,32,32); color: rgb(128,128,128); ")
+        mainLayout.addWidget(uhplabl, uhprow, 0, 1, 1)
+        mainLayout.addWidget(self.uhpvalu, uhprow, 1, 1, 1)
+
+        #####################
+
+        hprrow = rowpp()
+        hprlabl = QLabel("Material HP (required)")
+        self.hprvalu = QLineEdit()
+        self.hprvalu.readOnly = True
+        self.hprvalu.setStyleSheet("background-color: rgb(32,32,32); color: rgb(128,128,128); ")
+        mainLayout.addWidget(hprlabl, hprrow, 0, 1, 1)
+        mainLayout.addWidget(self.hprvalu, hprrow, 1, 1, 1)
+
+        #####################
+
         self.outedit = QTextEdit( )
         self.outedit.setStyleSheet("background-color: rgb(96, 32, 96); color: rgb(255,255,0); ")
-        mainLayout.addWidget(self.outedit, 0, 2, 10, 1)
+        mainLayout.addWidget(self.outedit, 0, 2, hprrow-1, 1)
 
         outgen = QPushButton("Generate GCode" )
         outgen.setStyleSheet("background-color: rgb(192, 184, 192); border-radius: 1; ")
-        mainLayout.addWidget(outgen, 10, 2, 1, 1)
+        mainLayout.addWidget(outgen, hprrow-1, 2, 1, 1)
         outgen.pressed.connect(self.generate)
 
         outwri = QPushButton("Write GCode" )
         outwri.setStyleSheet("background-color: rgb(208, 176, 208); border-radius: 2; ")
-        mainLayout.addWidget(outwri, 11, 2, 1, 1)
+        mainLayout.addWidget(outwri, hprrow, 2, 1, 1)
         outwri.pressed.connect(self.write)
 
         #####################
+ 
         self.setLayout(mainLayout)
         self.setWindowTitle("Facing GCode Generator \N{COPYRIGHT SIGN} 2017 - TweakoZ")
+        self.refresh()
 
+    ###################################
+
+    def refresh(self):
+        try:
+          V = self.cbox_mtl.itemData(self.cbox_mtl.currentIndex())
+          #print( "V<%s>"%V)
+          SFM = V["sfm"]
+          INT = V["intooth"]
+          setattr(self,"sfm",SFM)
+          RPM = (SFM*12/math.pi)/self.toolDiam
+
+          IPTmin = INT["min"]
+          IPTmax = INT["max"]
+          IPMmin = RPM*IPTmin*self.flutes
+          IPMmax = RPM*IPTmax*self.flutes
+
+          MRRmin = IPMmin*self.docZ*self.docXY
+          MRRmax = IPMmax*self.docZ*self.docXY
+
+          UHP = V["uhp"]
+          HPRmin = UHP*MRRmin
+          HPRmax = UHP*MRRmax
+
+          self.sfmvalu.setText("%d"%SFM)
+          self.rpmvalu.setText("%d"%RPM)
+          self.iptvalu.setText("%g ... %g" % (IPTmin,IPTmax))
+          self.ipmvalu.setText("%0.1f ... %0.1f" % (IPMmin,IPMmax))
+          self.mrrvalu.setText("%0.1f ... %0.1f" % (MRRmin,MRRmax))
+          self.uhpvalu.setText("%f" % UHP)
+          self.hprvalu.setText("%0.3f ... %0.3f" % (HPRmin,HPRmax))
+
+          self.docXYedit.setText("%g"%self.docXY)
+
+        except:
+          None
     ###################################
 
     def generate(self):
