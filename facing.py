@@ -77,11 +77,13 @@ class FacerWindow(QWidget):
             self.row = self.row+1
             return rv
         #####################
-        def makeNumEdit(var,label,row):
+        def makeNumEdit(var,label,bgcolor):
+            row = rowpp()
             numlabl = QLabel(label)
             numedit = QLineEdit( )
             numedit.setMaxLength(10)
             numedit.setText("%g"%getattr(self,var))
+            numedit.setStyleSheet("background-color: %s; color: rgb(255,255,128); "%bgcolor)
             def numeditchanged(text):
               print( "labl<%s> var<%s> val<%s>"% (label,var,text) )
               try:
@@ -97,26 +99,32 @@ class FacerWindow(QWidget):
             return numedit
         #####################
 
-        makeNumEdit("x1","x1",rowpp())
-        makeNumEdit("x2","x2",rowpp())
-        makeNumEdit("y1","y1",rowpp())
-        makeNumEdit("y2","y2",rowpp())
-        makeNumEdit("z1","z1",rowpp())
-        makeNumEdit("z2","z2",rowpp())
-        makeNumEdit("safeZ","safeZ",rowpp())
-        makeNumEdit("flutes","flutes",rowpp())
-        makeNumEdit("feedRate","Feed Rate (in/min)",rowpp())
-        makeNumEdit("toolDiam","Tool Diam (in)",rowpp())
+        makeNumEdit("x1","x1","rgb(64,0,0)")
+        makeNumEdit("x2","x2","rgb(64,0,0)")
+        makeNumEdit("y1","y1","rgb(64,0,0)")
+        makeNumEdit("y2","y2","rgb(64,0,0)")
+        makeNumEdit("z1","z1","rgb(64,0,0)")
+        makeNumEdit("z2","z2","rgb(64,0,0)")
+        makeNumEdit("safeZ","safeZ","rgb(96,0,0)")
+        makeNumEdit("flutes","flutes","rgb(0,64,0)")
+        makeNumEdit("feedRate","Feed Rate (in/min)","rgb(0,64,0)")
+        makeNumEdit("toolDiam","Tool Diam (in)","rgb(0,64,0)")
 
-        self.docXYedit = makeNumEdit("docXY","Radial(XY) DOC (in)",rowpp())
+        self.docXYedit = makeNumEdit("docXY","Radial(XY) DOC (in)","rgb(0,64,96)")
 
         docZrow = rowpp()
         self.cbox_docZ = QComboBox()
-        self.cbox_docZ.addItem('1/16 in', 1.0/16.0)
-        self.cbox_docZ.addItem("1/32 in", 1.0/32.0)
-        self.cbox_docZ.addItem("1/64 in", 1.0/64.0)
-        self.cbox_docZ.setCurrentIndex(self.cbox_docZ.findText("1/16 in"))
-        doczlabl = QLabel("docZ(select)")
+        self.cbox_docZ.addItem('1/8', 1.0/8.0)
+        self.cbox_docZ.addItem('1/10', 1.0/10.0)
+        self.cbox_docZ.addItem('1/16', 1.0/16.0)
+        self.cbox_docZ.addItem("1/25", 1.0/25.0)
+        self.cbox_docZ.addItem("1/32", 1.0/32.0)
+        self.cbox_docZ.addItem("1/50", 1.0/50.0)
+        self.cbox_docZ.addItem("1/64", 1.0/64.0)
+        self.cbox_docZ.addItem("1/100", 1.0/100.0)
+        self.cbox_docZ.setCurrentIndex(0)
+        self.cbox_docZ.setStyleSheet("background-color: rgb(0,64,96); border: rgb(255,255,255); color: rgb(255,255,128); ")
+        doczlabl = QLabel("Axial(Z) DOC (in)")
         def docZchanged():
             data = self.cbox_docZ.itemData(self.cbox_docZ.currentIndex())
             setattr(self,"docZ",data)
@@ -129,6 +137,7 @@ class FacerWindow(QWidget):
 
         mtlrow = rowpp()
         self.cbox_mtl = QComboBox()
+        self.cbox_mtl.setStyleSheet("background-color: rgb(96,96,96); border: rgb(255,255,255); color: rgb(255,255,128); ")
 
         for k in sfmtable:
             v = sfmtable[k]
@@ -144,78 +153,30 @@ class FacerWindow(QWidget):
 
         #####################
 
-        sfmrow = rowpp()
-        sfmlabl = QLabel("Material SFM (Surface-Ft/Min)")
-        self.sfmvalu = QLineEdit()
-        self.sfmvalu.readOnly = True
-        self.sfmvalu.setStyleSheet("background-color: rgb(32,32,32); color: rgb(128,128,128); ")
-        mainLayout.addWidget(sfmlabl, sfmrow, 0, 1, 1)
-        mainLayout.addWidget(self.sfmvalu, sfmrow, 1, 1, 1)
+        def makeindic(labltext):
+            row = rowpp()
+            labl = QLabel(labltext)
+            valu = QLineEdit()
+            valu.readOnly = True
+            valu.setStyleSheet("background-color: rgb(32,32,32); color: rgb(160,160,192); ")
+            mainLayout.addWidget(labl, row, 0, 1, 1)
+            mainLayout.addWidget(valu, row, 1, 1, 1)
+            return row,valu
 
         #####################
 
-        rpmrow = rowpp()
-        rpmlabl = QLabel("Material RPM (SFM * DIA * 12 / \N{GREEK SMALL LETTER PI} )")
-        self.rpmvalu = QLineEdit()
-        self.rpmvalu.readOnly = True
-        self.rpmvalu.setStyleSheet("background-color: rgb(32,32,32); color: rgb(128,128,128); ")
-        mainLayout.addWidget(rpmlabl, rpmrow, 0, 1, 1)
-        mainLayout.addWidget(self.rpmvalu, rpmrow, 1, 1, 1)
-
-        #####################
-
-        iptrow = rowpp()
-        iptlabl = QLabel("Material FEED (in-tooth)")
-        self.iptvalu = QLineEdit()
-        self.iptvalu.readOnly = True
-        self.iptvalu.setStyleSheet("background-color: rgb(32,32,32); color: rgb(128,128,128); ")
-        mainLayout.addWidget(iptlabl, iptrow, 0, 1, 1)
-        mainLayout.addWidget(self.iptvalu, iptrow, 1, 1, 1)
-
-        #####################
-
-        ipmrow = rowpp()
-        ipmlabl = QLabel("Material FEED (in/min)")
-        self.ipmvalu = QLineEdit()
-        self.ipmvalu.readOnly = True
-        self.ipmvalu.setStyleSheet("background-color: rgb(32,32,32); color: rgb(128,128,128); ")
-        mainLayout.addWidget(ipmlabl, ipmrow, 0, 1, 1)
-        mainLayout.addWidget(self.ipmvalu, ipmrow, 1, 1, 1)
-
-        #####################
-
-        mrrrow = rowpp()
-        mrrlabl = QLabel("Material RR (in^3/min)")
-        self.mrrvalu = QLineEdit()
-        self.mrrvalu.readOnly = True
-        self.mrrvalu.setStyleSheet("background-color: rgb(32,32,32); color: rgb(128,128,128); ")
-        mainLayout.addWidget(mrrlabl, mrrrow, 0, 1, 1)
-        mainLayout.addWidget(self.mrrvalu, mrrrow, 1, 1, 1)
-
-        #####################
-
-        uhprow = rowpp()
-        uhplabl = QLabel("Material UHP (unit-hp)")
-        self.uhpvalu = QLineEdit()
-        self.uhpvalu.readOnly = True
-        self.uhpvalu.setStyleSheet("background-color: rgb(32,32,32); color: rgb(128,128,128); ")
-        mainLayout.addWidget(uhplabl, uhprow, 0, 1, 1)
-        mainLayout.addWidget(self.uhpvalu, uhprow, 1, 1, 1)
-
-        #####################
-
-        hprrow = rowpp()
-        hprlabl = QLabel("Material HP (required)")
-        self.hprvalu = QLineEdit()
-        self.hprvalu.readOnly = True
-        self.hprvalu.setStyleSheet("background-color: rgb(32,32,32); color: rgb(128,128,128); ")
-        mainLayout.addWidget(hprlabl, hprrow, 0, 1, 1)
-        mainLayout.addWidget(self.hprvalu, hprrow, 1, 1, 1)
+        sfmrow, self.sfmvalu = makeindic("Material SFM (Surface-Ft/Min)")
+        rpmrow, self.rpmvalu = makeindic("Material RPM (SFM * DIA * 12 / \N{GREEK SMALL LETTER PI} )")
+        iptrow, self.iptvalu = makeindic("Material FEED (in-tooth)")
+        ipmrow, self.ipmvalu = makeindic("Material FEED (in/min)")
+        mrrrow, self.mrrvalu = makeindic("Material RR (in^3/min)")
+        uhprow, self.uhpvalu = makeindic("Material UHP (unit-hp)")
+        hprrow, self.hprvalu = makeindic("Material HP (required)")
 
         #####################
 
         self.outedit = QTextEdit( )
-        self.outedit.setStyleSheet("background-color: rgb(96, 32, 96); color: rgb(255,255,0); ")
+        self.outedit.setStyleSheet("background-color: rgb(96, 32, 96); color: rgb(255,255,255); ")
         mainLayout.addWidget(self.outedit, 0, 2, hprrow-1, 1)
 
         outgen = QPushButton("Generate GCode" )
@@ -281,7 +242,7 @@ class FacerWindow(QWidget):
         xa, xb = xb, xa
         if self.z1<self.z2:
             self.z1,self.z2 = self.z2,self.z1
-        print( "Z1<%f> Z2<%f>"%(self.z1,self.z2))
+        #print( "Z1<%f> Z2<%f>"%(self.z1,self.z2))
         for z in invfrange(self.z1,self.z2,-self.docZ):
           self.gcode += "G00 Z%g (move to safeZ)\n" % (self.safeZ)
           self.gcode += "G00 X%g Y%g (move to startXY)\n" % (xa, self.y1)
@@ -298,9 +259,12 @@ class FacerWindow(QWidget):
         options |= QFileDialog.DontUseNativeDialog
         savename = QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","GCode Files (*.ngc)", options=options )
         print(savename)
-        f = open(savename[0], 'wb')
-        f.write(self.gcode.encode('utf-8'))
-        f.close()
+        try:
+          f = open(savename[0], 'wb')
+          f.write(self.gcode.encode('utf-8'))
+          f.close()
+        except:
+          None
 
 #############################################################################
 
