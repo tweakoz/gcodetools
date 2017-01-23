@@ -237,20 +237,39 @@ class FacerWindow(QWidget):
         self.gcode = "G20\n"
         #print("x1<%f> x2<%f> y1<%f> y2<%f>"%(self.x1,self.x2,self.y1,self.y2))
         done = False
-        xa = self.x1
-        xb = self.x2
-        xa, xb = xb, xa
         if self.z1<self.z2:
             self.z1,self.z2 = self.z2,self.z1
         #print( "Z1<%f> Z2<%f>"%(self.z1,self.z2))
         for z in invfrange(self.z1,self.z2,-self.docZ):
-          self.gcode += "G00 Z%g (move to safeZ)\n" % (self.safeZ)
-          self.gcode += "G00 X%g Y%g (move to startXY)\n" % (xa, self.y1)
-          self.gcode += "G00 Z%g (move to startZ)\n" % (z)
-          for y in frange(self.y1,self.y2,self.docXY):
-            self.gcode += "G01 X%g Y%g F%g (sweep)\n" % (xa,y,self.feedRate)
-            self.gcode += "G00 Y%g (move to next)\n" % (y+self.docXY)
+
+          xa = self.x1
+          xb = self.x2
+          ya = self.y1
+          yb = self.y2
+          if xb<xa:
             xa, xb = xb, xa
+          if yb<ya:
+            ya, yb = yb, ya
+
+          done = False
+
+          while False == done:
+            self.gcode += "G00 Z%g (move to safeZ)\n" % (self.safeZ)
+            self.gcode += "G00 X%g Y%g (move to startXY)\n" % (xa, ya)
+            self.gcode += "G00 Z%g (move to startZ)\n" % (z)
+
+            self.gcode += "G01 X%g Y%g F%g (sweep)\n" % (xb,ya,self.feedRate)
+            self.gcode += "G01 X%g Y%g F%g (sweep)\n" % (xb,yb,self.feedRate)
+            self.gcode += "G01 X%g Y%g F%g (sweep)\n" % (xa,yb,self.feedRate)
+            self.gcode += "G01 X%g Y%g F%g (sweep)\n" % (xa,ya,self.feedRate)
+
+            xa += self.docXY
+            xb -= self.docXY
+            ya += self.docXY
+            yb -= self.docXY
+
+            done = (xb<xa) or (yb<ya)
+
         self.gcode += "M2\n"
         self.outedit.setText(self.gcode)
 
