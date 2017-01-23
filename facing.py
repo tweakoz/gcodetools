@@ -240,8 +240,9 @@ class FacerWindow(QWidget):
         if self.z1<self.z2:
             self.z1,self.z2 = self.z2,self.z1
         #print( "Z1<%f> Z2<%f>"%(self.z1,self.z2))
+        self.gcode += "G00 Z%g (move to safeZ)\n" % (self.safeZ)
         for z in invfrange(self.z1,self.z2,-self.docZ):
-
+ 
           xa = self.x1
           xb = self.x2
           ya = self.y1
@@ -254,7 +255,6 @@ class FacerWindow(QWidget):
           done = False
 
           while False == done:
-            self.gcode += "G00 Z%g (move to safeZ)\n" % (self.safeZ)
             self.gcode += "G00 X%g Y%g (move to startXY)\n" % (xa, ya)
             self.gcode += "G00 Z%g (move to startZ)\n" % (z)
 
