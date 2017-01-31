@@ -6,7 +6,7 @@
 import os,sys, string, math
 
 from PyQt5.QtCore import QSize, Qt
-from PyQt5.QtWidgets import QApplication, QGridLayout, QLabel, QWidget, QComboBox
+from PyQt5.QtWidgets import QApplication, QGridLayout, QLabel, QWidget, QComboBox, QCheckBox
 from PyQt5.QtWidgets import QLineEdit, QTextEdit, QPushButton, QFileDialog
 from PyQt5.QtGui import (QPalette, QPixmap)
 
@@ -19,7 +19,7 @@ def frange(start, stop, step):
         i += 1
 def invfrange(start, stop, step):
     i = 0
-    while start + i * step > stop:
+    while start + i * step >= stop:
         yield start + i * step
         i += 1
 
@@ -55,12 +55,12 @@ class FacerWindow(QWidget):
         mainLayout = QGridLayout()
         #####################
         self.z1 = 1.0
-        self.z2 = 1.5
-        self.safeZ = 1.75
-        self.x1 = 1.0
-        self.x2 = 2.0
-        self.y1 = 1.0
-        self.y2 = 2.0
+        self.z2 = 1.0
+        self.safeZ = 2.0
+        self.x1 = 0.0
+        self.x2 = 1.0
+        self.y1 = 0.0
+        self.y2 = 1.0
         self.docZ = 1/16.0
         self.docXY = 0.1
         self.feedRate = 6.0
@@ -68,8 +68,9 @@ class FacerWindow(QWidget):
         self.flutes = 2
         self.row = 0
         self.mrr = 0
+        self.cutDir = "Conventional"
 
-        self.docXY = self.toolDiam*0.33
+        self.docXY = self.toolDiam*0.25
 
         #####################
         def rowpp():
@@ -88,7 +89,7 @@ class FacerWindow(QWidget):
               print( "labl<%s> var<%s> val<%s>"% (label,var,text) )
               try:
                 if var=="toolDiam":
-                  self.docXY = float(text)*0.33
+                  self.docXY = float(text)*0.25
                 setattr(self,var,float(text))
               except:
                 None
@@ -132,6 +133,22 @@ class FacerWindow(QWidget):
         self.cbox_docZ.activated.connect(docZchanged)
         mainLayout.addWidget(doczlabl, docZrow, 0, 1, 1)
         mainLayout.addWidget(self.cbox_docZ, docZrow, 1, 1, 1)
+
+        #####################
+        cutdirrow = rowpp()
+        cutdirbox = QComboBox()
+        cutdirbox.setStyleSheet("background-color: rgb(96,96,96); border: rgb(255,255,255); color: rgb(255,255,128); ")
+        cutdirbox.addItem("Climb", "Climb")
+        cutdirbox.addItem("Conventional", "Conventional")
+        cutdirbox.setCurrentIndex(1)
+        cutdirlabl = QLabel("CutDirection")
+        def cutDirChanged():
+            data = cutdirbox.itemData(cutdirbox.currentIndex())
+            setattr(self,"cutDir",data)
+            self.refresh()
+        cutdirbox.activated.connect(cutDirChanged)
+        mainLayout.addWidget(cutdirlabl, cutdirrow, 0, 1, 1)
+        mainLayout.addWidget(cutdirbox, cutdirrow, 1, 1, 1)
 
         #####################
 
@@ -228,8 +245,35 @@ class FacerWindow(QWidget):
 
           self.docXYedit.setText("%g"%self.docXY)
 
+          print("cutdir<%s>" % self.cutDir)
+
         except:
           None
+
+    ###################################
+
+    def xaxb(self):
+      xa = self.x1
+      xb = self.x2
+      if xb<xa:
+        xa, xb = xb, xa
+      return xa, xb
+
+    def yayb(self):
+      ya = self.y1
+      yb = self.y2
+      if yb<ya:
+        ya, yb = yb, ya
+      return ya, yb
+
+    def zazb(self):
+      za = self.z1
+      zb = self.z2
+      if za<zb:
+        za, zb = zb, za
+      return za, zb
+
+
     ###################################
 
     def generate(self):
@@ -237,38 +281,59 @@ class FacerWindow(QWidget):
         self.gcode = "G20\n"
         #print("x1<%f> x2<%f> y1<%f> y2<%f>"%(self.x1,self.x2,self.y1,self.y2))
         done = False
-        if self.z1<self.z2:
-            self.z1,self.z2 = self.z2,self.z1
-        #print( "Z1<%f> Z2<%f>"%(self.z1,self.z2))
-        self.gcode += "G00 Z%g (move to safeZ)\n" % (self.safeZ)
-        for z in invfrange(self.z1,self.z2,-self.docZ):
+
+        xa, xb = self.xaxb()
+        ya, yb = self.yayb()
+        za, zb = self.zazb()
+
+        self.gcode += "G00 Z%g (rapid to safeZ)\n" % (self.safeZ)
+        self.gcode += "G00 X%g Y%g F%g (rapid to startXY)\n" % (xa, ya,self.feedRate)
+
+        FirstZ = True
+
+        for z in invfrange(za,zb,-self.docZ):
  
-          xa = self.x1
-          xb = self.x2
-          ya = self.y1
-          yb = self.y2
-          if xb<xa:
-            xa, xb = xb, xa
-          if yb<ya:
-            ya, yb = yb, ya
+          xa, xb = self.xaxb()
+          ya, yb = self.yayb()
 
           done = False
 
-          while False == done:
-            self.gcode += "G00 X%g Y%g (move to startXY)\n" % (xa, ya)
-            self.gcode += "G00 Z%g (move to startZ)\n" % (z)
+          if False==FirstZ:
+            self.gcode += "G01 X%g Y%g F%g (feed to startXY)\n" % (xa, ya,self.feedRate)
+          FirstZ = False
 
-            self.gcode += "G01 X%g Y%g F%g (sweep)\n" % (xb,ya,self.feedRate)
-            self.gcode += "G01 X%g Y%g F%g (sweep)\n" % (xb,yb,self.feedRate)
-            self.gcode += "G01 X%g Y%g F%g (sweep)\n" % (xa,yb,self.feedRate)
-            self.gcode += "G01 X%g Y%g F%g (sweep)\n" % (xa,ya,self.feedRate)
+          self.gcode += "G01 Z%g F%g (feed to Z)\n" % (z,self.feedRate)
+  
+          emitStartXY = False
+          if self.cutDir == "Conventional":
+              while False == done:
+                if emitStartXY:
+                    self.gcode += "G00 X%g Y%g (move to startXY)\n" % (xa, ya)
+                self.gcode += "G01 X%g Y%g F%g\n" % (xb,ya,self.feedRate)
+                self.gcode += "G01 X%g Y%g F%g\n" % (xb,yb,self.feedRate)
+                self.gcode += "G01 X%g Y%g F%g\n" % (xa,yb,self.feedRate)
+                self.gcode += "G01 X%g Y%g F%g\n" % (xa,ya,self.feedRate)
+                xa += self.docXY
+                xb -= self.docXY
+                ya += self.docXY
+                yb -= self.docXY
+                done = (xb<xa) or (yb<ya)
+                emitStartXY = True
 
-            xa += self.docXY
-            xb -= self.docXY
-            ya += self.docXY
-            yb -= self.docXY
-
-            done = (xb<xa) or (yb<ya)
+          elif self.cutDir == "Climb":
+              while False == done:
+                if emitStartXY:
+                    self.gcode += "G00 X%g Y%g (move to startXY)\n" % (xa, ya)
+                self.gcode += "G01 X%g Y%g F%g\n" % (xa,yb,self.feedRate)
+                self.gcode += "G01 X%g Y%g F%g\n" % (xb,yb,self.feedRate)
+                self.gcode += "G01 X%g Y%g F%g\n" % (xb,ya,self.feedRate)
+                self.gcode += "G01 X%g Y%g F%g\n" % (xa,ya,self.feedRate)
+                xa += self.docXY
+                xb -= self.docXY
+                ya += self.docXY
+                yb -= self.docXY
+                done = (xb<xa) or (yb<ya)
+                emitStartXY = True
 
         self.gcode += "M2\n"
         self.outedit.setText(self.gcode)
